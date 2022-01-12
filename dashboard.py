@@ -53,10 +53,6 @@ path = r'C:\Users\ROUA\OneDrive\Bureau\openclassrooms\P7\HomeCredit\application_
 def load_df():
     url = 'https://drive.google.com/file/d/1fK0EPuQys4fxwe50FBnZ175JvMQf4lrs/view?usp=sharing'
     url = 'https://drive.google.com/uc?id=' + url.split('/')[-2]
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'}
-
-    s = requests.get(url, headers=headers)
     df = pd.read_csv(url, on_bad_lines='skip')
     return df
 df=load_df()
@@ -91,7 +87,6 @@ choose_feature(option=option)
 if st.sidebar.checkbox('Show general informations dataframe'):
     st.dataframe(df.head(5))
 
-p = requests.request(method='get', url=f'http://127.0.0.1:4000/client/{index}/explain')
 
 #############################################################
 
@@ -123,8 +118,6 @@ if st.sidebar.checkbox('SHAP feature importance'):
     fig, ax = plt.subplots(nrows=1, ncols=1)
     shap.summary_plot(shap_values[0], X_train.drop(columns=['Unnamed: 0']), plot_type='dot', show=False)
     st.pyplot(fig)
-
-
 
 
 
