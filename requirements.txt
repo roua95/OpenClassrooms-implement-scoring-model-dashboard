@@ -1,0 +1,9 @@
+streamlit
+pandas
+plotly
+matplotlib
+requests
+shap
+seaborn
+lightgbm
+numpy
