@@ -8,6 +8,8 @@ import lightgbm as lgb
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import plotly.graph_objects as go
+
 
 def st_shap(plot, height=None):
     shap_html = f"<head>{shap.getjs()}</head><body>{plot.html()}</body>"
@@ -26,22 +28,31 @@ def choose_feature(option):
         st.plotly_chart(fig)
     elif option == 'AMT_CREDIT':
         fig, ax = plt.subplots()
-        ax=sns.histplot(data=df, x="AMT_CREDIT",hue='TARGET')
-        plt.title('Amount credit distribution')
+        #ax=sns.histplot(data=df, x="AMT_CREDIT",hue='TARGET')
+        ax=sns.kdeplot(df.AMT_CREDIT)
+        plt.axvline(df[(df.SK_ID_CURR==index)].AMT_CREDIT.item(),ymin=0, ymax=1,linestyle='--')
+        plt.axvline(df.AMT_CREDIT.mean(),ymin=0, ymax=1,linestyle='--',color='red')
+        plt.title('Credit amount distribution')
         st.pyplot(fig)
     elif option =='FAMILY STATUS':
         # Distribution of lenders by family status
         fig=sns.catplot(data=df, y='NAME_FAMILY_STATUS',hue='TARGET', kind='count')
         plt.xticks(rotation=60)
         plt.yticks(ticks=np.arange(6), labels=['Single',' married','civil marriage','widow','seperated','unknown'])
-        plt.title('Borrower Family Status')
+        plt.title('Family Status')
         st.pyplot(fig)
     elif option =='Borrowwer Occupations':
         fig, ax = plt.subplots()
         ax=sns.countplot(data=df, y='OCCUPATION_TYPE')
-        #plt.annotate(df.OCCUPATION_TYPE.tolist()[index])
         st.pyplot(fig)
-        return st.pyplot(fig)
+    elif option == 'Age':
+        fig, ax = plt.subplots()
+        # ax=sns.histplot(data=df, x="AMT_CREDIT",hue='TARGET')
+        ax = sns.kdeplot(abs(df.DAYS_BIRTH)/365)
+        plt.axvline(abs(df[(df.SK_ID_CURR == index)].DAYS_BIRTH.item())/365, ymin=0, ymax=1, linestyle='--')
+        plt.axvline(abs(df.DAYS_BIRTH.mean())/365, ymin=0, ymax=1, linestyle='--', color='red')
+        plt.title('Age distribution')
+        st.pyplot(fig)
 
 
 
@@ -55,11 +66,14 @@ def load_df():
     url = 'https://drive.google.com/uc?id=' + url.split('/')[-2]
     df = pd.read_csv(url, on_bad_lines='skip')
     return df
+
 df=load_df()
 st.title('Home Credit')
 st.subheader('General information about all clients')
 st.sidebar.image('./Home-Credit-logo.png')
 st.sidebar.title("Select client_ID")
+global prediction
+prediction=0
 with st.form(key='my_form'):
     with st.sidebar:
         index = st.sidebar.number_input("ID", min_value=100002, max_value=10000000, key="index")
@@ -72,24 +86,63 @@ with st.form(key='my_form'):
             response = requests.request(method='get', url=f'https://oc-implement-scoring-model.herokuapp.com/predict/{index}')
             prediction =response.json()["prediction"]
             st.write(prediction)
-            if prediction < 0.5 :
-                st.write('Model predicted 0 -> credit accepted')
-            else:
-                st.write('Model predicted 1 -> credit not accepted')
 
-        option = st.selectbox('Choose a feature to show its distribution',('CODE_GENDER','NAME_CONTRACT_TYPE','AMT_CREDIT','TARGET','FAMILY STATUS','Borrowwer Occupations'))
+
+        option = st.selectbox('Choose a feature to show its distribution',('Age','CODE_GENDER','NAME_CONTRACT_TYPE','AMT_CREDIT','TARGET','FAMILY STATUS','Borrowwer Occupations'))
         choice = st.form_submit_button("choose")
         session = requests.Session()
-choose_feature(option=option)
+if choice:
+    choose_feature(option=option)
 
+####indicator code
+fig1 = go.Figure(go.Indicator(
+    mode = "gauge+number",
+    value = prediction,
+    number= {'font': {'color': 'green'}},
+    domain = {'x': [0, 1], 'y': [0, 1]},
+    gauge={
+        'axis': {'range': [None, 1], 'tickwidth': 1, 'tickcolor': "darkblue"},
+        #'bar': {'color': "darkblue"},
+        'bgcolor': "white",
+        'borderwidth': 2,
+        'bordercolor': "gray",
+        'steps': [
+            {'range': [0, 0.5], 'color': 'green'},
+            {'range': [0.5, 1], 'color': 'red'}],
+    },
+    title = {'text': "prediction"}))
 
+fig2 = go.Figure(go.Indicator(
+    mode = "gauge+number",
+    value = prediction,
+    number= {'font': {'color': 'red'}},
+    domain = {'x': [0, 1], 'y': [0, 1]},
+    gauge={
+        'axis': {'range': [None, 1], 'tickwidth': 1, 'tickcolor': "darkblue"},
+        #'bar': {'color': "darkblue"},
+        'bgcolor': "white",
+        'borderwidth': 2,
+        'bordercolor': "gray",
+        'steps': [
+            {'range': [0, 0.5], 'color': 'green'},
+            {'range': [0.5, 1], 'color': 'red'}],
+    },
+    title = {'text': "prediction"}))
+if prediction!=0:
+    if prediction<0.5 :
+        st.plotly_chart(fig1)
+        st.subheader('**Model predicted 0 -> credit accepted**')
+        st.balloons()
+    else:
+        st.plotly_chart(fig2)
+        st.subheader('**Model predicted 1 -> credit not accepted**')
 
 if st.sidebar.checkbox('Show general informations dataframe'):
     st.dataframe(df.head(5))
 
 
-#############################################################
-
+###############SHAP related code##################
+print(df[df.SK_ID_CURR == index].AMT_CREDIT)
 
 url_X_train='https://drive.google.com/file/d/1zBxY6cvnEvvqn7kb5OcB2t0NYhOiHsHw/view?usp=sharing'
 url_X_train ='https://drive.google.com/uc?id=' + url_X_train.split('/')[-2]
@@ -97,7 +150,7 @@ X_train =pd.read_csv(url_X_train,on_bad_lines='skip')
 print(df.shape)
 print(X_train.shape)
 print(df.columns)
-model = lgb.Booster(model_file='model1.txt')
+model = lgb.Booster(model_file='model.txt')
 model.params['objective'] = 'binary'
 explainerModel = shap.TreeExplainer(model)
 
