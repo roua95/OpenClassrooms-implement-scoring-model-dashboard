@@ -17,10 +17,23 @@ def st_shap(plot, height=None):
 
 def choose_feature(option):
     if option == 'CODE_GENDER':
-        fig = px.pie(values=df.CODE_GENDER.value_counts(), names=['Male','Female'],title='CODE_GENDER distribution')
+        fig, ax = plt.subplots()
+        handles, labels = ax.get_legend_handles_labels()
+        print("++++++")
+        print(df.CODE_GENDER.value_counts())
+        if(df[(df.SK_ID_CURR==index)].CODE_GENDER.item() ==1):
+            fig= px.pie(values=df.CODE_GENDER.value_counts(), names=['Male(this user is a male)','Female'],title='CODE_GENDER distribution')
+        else:
+            fig= px.pie(values=df.CODE_GENDER.value_counts(), names=['Male','Female(this user is a female)'],title='CODE_GENDER distribution')
         st.plotly_chart(fig)
+
     elif option == 'TARGET':
-        fig = px.pie(values=df.TARGET.value_counts(), names=['can pay loans', 'cannot pay loans'],title='TARGET DISTRIBUTION')
+        if(df[(df.SK_ID_CURR==index)].CODE_GENDER.item() ==0):
+
+            fig = px.pie(values=df.TARGET.value_counts(), names=['can pay loans (this user can pay his/her loan)', 'cannot pay loans'],title='TARGET DISTRIBUTION')
+        else:
+            fig = px.pie(values=df.TARGET.value_counts(), names=['can pay loans', 'cannot pay loans(this user cannot pay his/her loan)'],title='TARGET DISTRIBUTION')
+
         st.plotly_chart(fig)
     elif option == 'NAME_CONTRACT_TYPE':
         fig = px.pie(values=df.NAME_CONTRACT_TYPE.value_counts(), names=['cash loan','revolving loan'],title='Contract types distribution')
@@ -28,10 +41,10 @@ def choose_feature(option):
         st.plotly_chart(fig)
     elif option == 'AMT_CREDIT':
         fig, ax = plt.subplots()
-        #ax=sns.histplot(data=df, x="AMT_CREDIT",hue='TARGET')
         ax=sns.kdeplot(df.AMT_CREDIT)
-        plt.axvline(df[(df.SK_ID_CURR==index)].AMT_CREDIT.item(),ymin=0, ymax=1,linestyle='--')
-        plt.axvline(df.AMT_CREDIT.mean(),ymin=0, ymax=1,linestyle='--',color='red')
+        plt.axvline(df[(df.SK_ID_CURR==index)].AMT_CREDIT.item(),ymin=0, ymax=1,linestyle='--',label='user\'s Credit AMT : '+str(round(df[(df.SK_ID_CURR==index)].AMT_CREDIT.item())))
+        plt.axvline(df.AMT_CREDIT.mean(),ymin=0, ymax=1,linestyle='--',color='red',label='mean credit AMT: '+str(round(df.AMT_CREDIT.mean())))
+        plt.legend(loc='upper right')
         plt.title('Credit amount distribution')
         st.pyplot(fig)
     elif option =='FAMILY STATUS':
@@ -41,16 +54,13 @@ def choose_feature(option):
         plt.yticks(ticks=np.arange(6), labels=['Single',' married','civil marriage','widow','seperated','unknown'])
         plt.title('Family Status')
         st.pyplot(fig)
-    elif option =='Borrowwer Occupations':
-        fig, ax = plt.subplots()
-        ax=sns.countplot(data=df, y='OCCUPATION_TYPE')
-        st.pyplot(fig)
     elif option == 'Age':
         fig, ax = plt.subplots()
         # ax=sns.histplot(data=df, x="AMT_CREDIT",hue='TARGET')
         ax = sns.kdeplot(abs(df.DAYS_BIRTH)/365)
-        plt.axvline(abs(df[(df.SK_ID_CURR == index)].DAYS_BIRTH.item())/365, ymin=0, ymax=1, linestyle='--')
-        plt.axvline(abs(df.DAYS_BIRTH.mean())/365, ymin=0, ymax=1, linestyle='--', color='red')
+        plt.axvline(abs(df[(df.SK_ID_CURR == index)].DAYS_BIRTH.item())/365, ymin=0, ymax=1, linestyle='--',label='user age: '+str(round(abs(df[(df.SK_ID_CURR == index)].DAYS_BIRTH.item())/365)))
+        plt.axvline(abs(df.DAYS_BIRTH.mean())/365, ymin=0, ymax=1, linestyle='--', color='red',label='mean age : '+str(round(abs(df.DAYS_BIRTH.mean())/365)))
+        plt.legend(loc='upper right')
         plt.title('Age distribution')
         st.pyplot(fig)
 
@@ -88,7 +98,7 @@ with st.form(key='my_form'):
             st.write(prediction)
 
 
-        option = st.selectbox('Choose a feature to show its distribution',('Age','CODE_GENDER','NAME_CONTRACT_TYPE','AMT_CREDIT','TARGET','FAMILY STATUS','Borrowwer Occupations'))
+        option = st.selectbox('Choose a feature to show its distribution',('Age','CODE_GENDER','NAME_CONTRACT_TYPE','AMT_CREDIT','TARGET','FAMILY STATUS'))
         choice = st.form_submit_button("choose")
         session = requests.Session()
 if choice:
@@ -124,12 +134,12 @@ fig2 = go.Figure(go.Indicator(
         'borderwidth': 2,
         'bordercolor': "gray",
         'steps': [
-            {'range': [0, 0.5], 'color': 'green'},
-            {'range': [0.5, 1], 'color': 'red'}],
+            {'range': [0, 0.45], 'color': 'green'},
+            {'range': [0.45, 1], 'color': 'red'}],
     },
     title = {'text': "prediction"}))
 if prediction!=0:
-    if prediction<0.5 :
+    if prediction<0.45 :
         st.plotly_chart(fig1)
         st.subheader('**Model predicted 0 -> credit accepted**')
         st.balloons()
@@ -138,7 +148,7 @@ if prediction!=0:
         st.subheader('**Model predicted 1 -> credit not accepted**')
 
 if st.sidebar.checkbox('Show general informations dataframe'):
-    st.dataframe(df.head(5))
+    st.dataframe(df.head(10))
 
 
 ###############SHAP related code##################
